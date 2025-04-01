@@ -1,8 +1,13 @@
+https://github.com/user-attachments/assets/07c60b75-c097-4346-a63a-b8daff1dd22a
+
+
 # bluerestd
 
 A cross-platform Bluetooth daemon with a OpenAPI-based REST API interface to control Bluetooth Classic functions.
 
 Currently works on Linux and Windows, with FreeBSD and MacOS support coming soon.
+
+A demo for Windows is displayed above.
 
 ## Funding
 
