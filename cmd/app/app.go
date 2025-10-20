@@ -12,15 +12,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bluetuith-org/bluerestd/endpoints"
 	ac "github.com/bluetuith-org/bluetooth-classic/api/appfeatures"
 	"github.com/bluetuith-org/bluetooth-classic/api/bluetooth"
 	"github.com/bluetuith-org/bluetooth-classic/api/config"
 	"github.com/bluetuith-org/bluetooth-classic/api/eventbus"
 	"github.com/bluetuith-org/bluetooth-classic/session"
-	"github.com/bluetuith-org/bluerestd/endpoints"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/pterm/pterm"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 //lint:file-ignore ST1005 Ignore captitalized error strings
@@ -49,8 +49,8 @@ func (c cmdError) Error() string {
 }
 
 // New returns a new application.
-func New() *cli.App {
-	return cliApp()
+func New() *cli.Command {
+	return cliCommand()
 }
 
 // newCmdError returns a new cmdError.
@@ -58,21 +58,20 @@ func newCmdError(sp *pterm.SpinnerPrinter, err error) cmdError {
 	return cmdError{sp, err}
 }
 
-// cliApp registers and returns the application instance.
-func cliApp() *cli.App {
-	cli.VersionPrinter = func(cCtx *cli.Context) {
-		fmt.Fprintf(cCtx.App.Writer, "%s (%s)\n", Version, Revision)
+// cliCommand registers and returns the application instance.
+func cliCommand() *cli.Command {
+	cli.VersionPrinter = func(cmd *cli.Command) {
+		fmt.Fprintf(cmd.Root().Writer, "%s (%s)\n", Version, Revision)
 	}
 
-	return &cli.App{
+	return &cli.Command{
 		Name:                   "bluerestd",
 		Usage:                  "Bluetooth REST API daemon.",
 		Version:                Version + " (" + Revision + ")",
 		Description:            "A Bluetooth daemon that provides a REST API to control Bluetooth Classic functionalities.\nNote that, certain endpoints may be disabled, depending on whether the underlying implementation supports certain functions. ",
 		DefaultCommand:         "bluerestd launch",
 		Copyright:              "(c) bluetuith-org.",
-		Compiled:               time.Now(),
-		EnableBashCompletion:   true,
+		EnableShellCompletion:  true,
 		UseShortOptionHandling: true,
 		Suggest:                true,
 		Commands: []*cli.Command{
@@ -86,7 +85,7 @@ func cliApp() *cli.App {
 						DefaultText: "json",
 						Value:       "json",
 						Aliases:     []string{"f"},
-						EnvVars:     []string{"BRESTD_OAPI_FORMAT"},
+						Sources:     cli.EnvVars("BRESTD_OAPI_FORMAT"),
 					},
 					&cli.StringFlag{
 						Name:        "version",
@@ -94,7 +93,7 @@ func cliApp() *cli.App {
 						DefaultText: "3.0.3",
 						Value:       "3.0.3",
 						Aliases:     []string{"v"},
-						EnvVars:     []string{"BRESTD_OAPI_VERSION"},
+						Sources:     cli.EnvVars("BRESTD_OAPI_VERSION"),
 					},
 				},
 				Action: cmdOpenAPI,
@@ -111,7 +110,7 @@ func cliApp() *cli.App {
 						DefaultText: "10",
 						Value:       10,
 						Aliases:     []string{"i"},
-						EnvVars:     []string{"BRESTD_AUTHTIMEOUT"},
+						Sources:     cli.EnvVars("BRESTD_AUTHTIMEOUT"),
 					},
 					&cli.StringFlag{
 						Name:        "tcp-address",
@@ -120,7 +119,7 @@ func cliApp() *cli.App {
 						DefaultText: tcpURI,
 						Value:       tcpURI,
 						Aliases:     []string{"a"},
-						EnvVars:     []string{"BRESTD_TCPADDR"},
+						Sources:     cli.EnvVars("BRESTD_TCPADDR"),
 					},
 					&cli.BoolFlag{
 						Name:        "using-default-tcp",
@@ -129,7 +128,7 @@ func cliApp() *cli.App {
 						DefaultText: tcpURI,
 						Value:       false,
 						Aliases:     []string{"t"},
-						EnvVars:     []string{"BRESTD_USE_DEFAULT_TCPADDR"},
+						Sources:     cli.EnvVars("BRESTD_USE_DEFAULT_TCPADDR"),
 					},
 					&cli.StringFlag{
 						Name:        "unix-socket",
@@ -138,7 +137,7 @@ func cliApp() *cli.App {
 						DefaultText: sockAddress,
 						Value:       sockAddress,
 						Aliases:     []string{"s"},
-						EnvVars:     []string{"BRESTD_SOCKET"},
+						Sources:     cli.EnvVars("BRESTD_SOCKET"),
 					},
 					&cli.BoolFlag{
 						Name:        "using-default-socket",
@@ -147,13 +146,13 @@ func cliApp() *cli.App {
 						DefaultText: sockAddress,
 						Value:       false,
 						Aliases:     []string{"u"},
-						EnvVars:     []string{"BRESTD_USE_DEFAULT_SOCKET"},
+						Sources:     cli.EnvVars("BRESTD_USE_DEFAULT_SOCKET"),
 					},
 				},
 				Action: cmdStart,
 			},
 		},
-		ExitErrHandler: func(_ *cli.Context, err error) {
+		ExitErrHandler: func(_ context.Context, _ *cli.Command, err error) {
 			if err == nil {
 				return
 			}
@@ -173,23 +172,23 @@ func cliApp() *cli.App {
 }
 
 // cmdStart handles the 'launch' command.
-func cmdStart(cliCtx *cli.Context) error {
-	if cliCtx.IsSet("using-default-tcp") || cliCtx.IsSet("using-default-socket") {
+func cmdStart(ctx context.Context, cliCmd *cli.Command) error {
+	if cliCmd.IsSet("using-default-tcp") || cliCmd.IsSet("using-default-socket") {
 		goto Start
 	}
 
-	if cliCtx.IsSet("tcp-address") && cliCtx.IsSet("unix-socket") {
+	if cliCmd.IsSet("tcp-address") && cliCmd.IsSet("unix-socket") {
 		return fmt.Errorf("%s", "Only one of '--tcp-address' or '--unix-socket' must be specified.")
 	}
 
 Start:
 	spinner := infoSpinner("Starting session")
 
-	tcpaddr := cliCtx.String("tcp-address")
-	sockpath := cliCtx.String("unix-socket")
+	tcpaddr := cliCmd.String("tcp-address")
+	sockpath := cliCmd.String("unix-socket")
 
 	proto, addr := "tcp", tcpaddr
-	if cliCtx.IsSet("using-default-socket") || (cliCtx.IsSet("unix-socket") && sockpath != "") {
+	if cliCmd.IsSet("using-default-socket") || (cliCmd.IsSet("unix-socket") && sockpath != "") {
 		proto, addr = "unix", sockpath
 	}
 
@@ -198,7 +197,7 @@ Start:
 		return newCmdError(spinner, fmt.Errorf("Cannot listen on %s '%s': %w", proto, addr, err))
 	}
 
-	session, features, err := newSession(cliCtx)
+	session, features, err := newSession(cliCmd)
 	if err != nil {
 		return newCmdError(spinner, err)
 	}
@@ -219,7 +218,7 @@ Start:
 }
 
 // cmdOpenAPI handles the 'openapi' command.
-func cmdOpenAPI(cliCtx *cli.Context) error {
+func cmdOpenAPI(ctx context.Context, cliCmd *cli.Command) error {
 	oldFormat := false
 	apifn := func() *huma.OpenAPI {
 		api := endpoints.Register(http.NewServeMux(), nil, ac.MergedFeatureSet())
@@ -232,7 +231,7 @@ func cmdOpenAPI(cliCtx *cli.Context) error {
 		err error
 	)
 
-	switch v := cliCtx.String("version"); v {
+	switch v := cliCmd.String("version"); v {
 	case "3.0.3":
 		oldFormat = true
 	case "3.1":
@@ -243,7 +242,7 @@ func cmdOpenAPI(cliCtx *cli.Context) error {
 		goto Done
 	}
 
-	switch f := cliCtx.String("format"); f {
+	switch f := cliCmd.String("format"); f {
 	case "json":
 		if oldFormat {
 			b, err = apifn().Downgrade()
@@ -336,11 +335,11 @@ func serve(listener net.Listener, router *http.ServeMux, spinner *pterm.SpinnerP
 }
 
 // newSession initializes and returns a new session.
-func newSession(cliCtx *cli.Context) (bluetooth.Session, ac.FeatureSet, error) {
+func newSession(cliCmd *cli.Command) (bluetooth.Session, ac.FeatureSet, error) {
 	eventbus.DisableEvents()
 
 	cfg := config.New()
-	cfg.AuthTimeout = cliCtx.Duration("auth-timeout") * time.Second
+	cfg.AuthTimeout = cliCmd.Duration("auth-timeout") * time.Second
 
 	session := session.NewSession()
 
