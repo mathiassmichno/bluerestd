@@ -12,12 +12,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bluetuith-org/bluerestd/endpoints"
 	ac "github.com/bluetuith-org/bluetooth-classic/api/appfeatures"
 	"github.com/bluetuith-org/bluetooth-classic/api/bluetooth"
 	"github.com/bluetuith-org/bluetooth-classic/api/config"
 	"github.com/bluetuith-org/bluetooth-classic/api/eventbus"
 	"github.com/bluetuith-org/bluetooth-classic/session"
-	"github.com/bluetuith-org/bluerestd/endpoints"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/pterm/pterm"
 	"github.com/urfave/cli/v2"
@@ -336,7 +336,7 @@ func serve(listener net.Listener, router *http.ServeMux, spinner *pterm.SpinnerP
 }
 
 // newSession initializes and returns a new session.
-func newSession(cliCtx *cli.Context) (bluetooth.Session, ac.FeatureSet, error) {
+func newSession(cliCtx *cli.Context) (bluetooth.Session, *ac.FeatureSet, error) {
 	eventbus.DisableEvents()
 
 	cfg := config.New()

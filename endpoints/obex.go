@@ -27,7 +27,7 @@ func cancelTransferEndpoint(api huma.API, session bluetooth.Session) {
 		AddressInput
 	},
 	) (*struct{}, error) {
-		return nil, session.Obex(input.Address).FileTransfer().CancelTransfer()
+		return nil, session.Obex(input.Address).ObjectPush().CancelTransfer()
 	})
 }
 
@@ -41,7 +41,7 @@ func startTransferEndpoint(api huma.API, session bluetooth.Session) {
 
 	type QueuedFilesOutput struct {
 		Body struct {
-			Queued []bluetooth.FileTransferData `doc:"The files queued for transfer." json:"queued_files"`
+			Queued []bluetooth.ObjectPushData `doc:"The files queued for transfer." json:"queued_files"`
 		}
 	}
 
@@ -62,21 +62,21 @@ func startTransferEndpoint(api huma.API, session bluetooth.Session) {
 		}
 
 		obexCall := session.Obex(input.Address)
-		if err := obexCall.FileTransfer().CreateSession(ctx); err != nil {
+		if err := obexCall.ObjectPush().CreateSession(ctx); err != nil {
 			return nil, err
 		}
 
 		queued := &QueuedFilesOutput{}
-		queued.Body.Queued = make([]bluetooth.FileTransferData, 0, len(input.Body.FilePaths))
+		queued.Body.Queued = make([]bluetooth.ObjectPushData, 0, len(input.Body.FilePaths))
 
 		for _, file := range input.Body.FilePaths {
 			select {
 			case <-ctx.Done():
-				return nil, obexCall.FileTransfer().CancelTransfer()
+				return nil, obexCall.ObjectPush().CancelTransfer()
 			default:
 			}
 
-			data, err := obexCall.FileTransfer().SendFile(file)
+			data, err := obexCall.ObjectPush().SendFile(file)
 			if err != nil {
 				return nil, err
 			}

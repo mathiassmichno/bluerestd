@@ -31,7 +31,7 @@ type authPairingEvent struct {
 
 // authTransferEvent describes a transfer authorization event.
 type authTransferEvent struct {
-	FileProperties bluetooth.FileTransferData `doc:"The properties of the file." json:"file_properties,omitempty"`
+	FileProperties bluetooth.ObjectPushData `doc:"The properties of the file." json:"file_properties,omitempty"`
 }
 
 // authEventReply describes a reply to an authorization event.
@@ -60,7 +60,7 @@ func NewAuthorizer() *Authorizer {
 }
 
 // AuthorizeTransfer sends a "transfer" authentication request.
-func (a *Authorizer) AuthorizeTransfer(timeout bluetooth.AuthTimeout, props bluetooth.FileTransferData) error {
+func (a *Authorizer) AuthorizeTransfer(timeout bluetooth.AuthTimeout, props bluetooth.ObjectPushData) error {
 	return a.sendAndWait(timeout, authRequestEvent{
 		AuthType:      "transfer",
 		ReplyRequired: true,

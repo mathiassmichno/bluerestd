@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/bluetuith-org/bluetooth-classic/api/bluetooth"
+	"github.com/bluetuith-org/bluetooth-classic/api/errorkinds"
 	"github.com/bluetuith-org/bluetooth-classic/api/eventbus"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/sse"
@@ -33,7 +34,11 @@ func adaptersEndpoint(api huma.API, session bluetooth.Session) {
 		Tags:        []string{"Session"},
 		Description: "Fetches all available adapters.",
 	}, func(_ context.Context, _ *struct{}) (*AdaptersOutput, error) {
-		return &AdaptersOutput{session.Adapters()}, nil
+		adaptersData, err := session.Adapters()
+		if err != nil {
+			return &AdaptersOutput{adaptersData}, err
+		}
+		return &AdaptersOutput{adaptersData}, nil
 	})
 }
 
@@ -69,10 +74,8 @@ func authEndpoint(api huma.API) {
 
 // eventsEndpoint registers the path "/events".
 func eventsEndpoint(api huma.API) {
-	newPublisher := func(sender sse.Sender) (*eventPublisher, eventbus.EventSubscriber) {
-		eh := eventbus.NilHandler()
-
-		return &eventPublisher{sender}, eh
+	newPublisher := func(sender sse.Sender) *eventPublisher {
+		return &eventPublisher{sender}
 	}
 
 	sse.Register(api, huma.Operation{
@@ -84,13 +87,13 @@ func eventsEndpoint(api huma.API) {
 		Description: "Subscribe to this EventSource for all Bluetooth events. For documentation on each watchable event, look at the *Responses* section.",
 	}, map[string]any{
 		"auth":         authRequestEvent{},
-		"adapter":      bluetooth.AdapterEvent(),
-		"error":        bluetooth.ErrorEvent(),
-		"device":       bluetooth.DeviceEvent(),
-		"mediaplayer":  bluetooth.MediaEvent(),
-		"filetransfer": bluetooth.FileTransferEvent(),
+		"adapter":      bluetooth.Event[bluetooth.AdapterData]{},
+		"error":        bluetooth.Event[errorkinds.GenericError]{},
+		"device":       bluetooth.Event[bluetooth.DeviceData]{},
+		"mediaplayer":  bluetooth.Event[bluetooth.MediaData]{},
+		"filetransfer": bluetooth.Event[bluetooth.ObjectPushData]{},
 	}, func(ctx context.Context, _ *struct{}, send sse.Sender) {
-		eventbus.RegisterEventHandlers(newPublisher(send))
+		eventbus.RegisterEventHandlers(newPublisher(send), eventbus.NilHandler())
 		defer eventbus.DisableEvents()
 
 		<-ctx.Done()

@@ -10,7 +10,7 @@ import (
 )
 
 // Register selectively registers endpoints based on the available features of the session.
-func Register(router *http.ServeMux, session bluetooth.Session, features ac.FeatureSet) huma.API {
+func Register(router *http.ServeMux, session bluetooth.Session, features *ac.FeatureSet) huma.API {
 	api := registerAPI(router)
 
 	adapterEndpoints(api, session)

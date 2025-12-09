@@ -12,7 +12,7 @@ type eventPublisher struct {
 }
 
 // Publish sends the provided data to the registered event source.
-func (e *eventPublisher) Publish(id uint, _ string, data any) {
+func (e *eventPublisher) Publish(id uint, data any) {
 	e.sender(sse.Message{
 		ID:    int(id),
 		Data:  data,
